@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class TenantsService implements ITenantsService {
+public class TenantsServiceImpl implements ITenantsService {
 
     private final TenantsRepository tenantsRepository;
     private final TenantsConverter tenantsConverter;

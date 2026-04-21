@@ -3,6 +3,7 @@ package com.noticore.noticore_api.entity;
 import com.noticore.noticore_api.enums.DomainStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "tenant_domains")
+@Data
 public class TenantDomains {
 
     @Id

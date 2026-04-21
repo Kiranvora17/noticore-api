@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import java.io.IOException;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -17,7 +19,7 @@ public class RequestInterceptor implements HandlerInterceptor {
     private final ITenantsService iTenantsService;
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws IOException {
 
         try {
             String username = request.getHeader("X-RapidAPI-User");
@@ -32,7 +34,9 @@ public class RequestInterceptor implements HandlerInterceptor {
                 request.setAttribute("tenant", tenant);
             }
         } catch (Exception e) {
-            log.error("Error in request interceptor: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Internal server error\"}");
             return false;
         }
         return true;
