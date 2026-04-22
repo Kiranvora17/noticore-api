@@ -1,5 +1,7 @@
 package com.noticore.noticore_api.entity;
 
+import com.noticore.noticore_api.converter.DnsRecordsConverter;
+import com.noticore.noticore_api.dto.DnsRecordDto;
 import com.noticore.noticore_api.enums.DomainStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -8,6 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -29,9 +32,10 @@ public class TenantDomains {
     @NotNull
     private String domainName;
 
-    @Column(name = "dkim_token")
+    @Column(name = "dns_records")
     @NotNull
-    private String dkimToken;
+    @Convert(converter = DnsRecordsConverter.class)
+    private Set<DnsRecordDto> dnsRecords;
 
     @Column(name = "status")
     @NotNull

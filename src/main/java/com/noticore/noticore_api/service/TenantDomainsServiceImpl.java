@@ -1,5 +1,6 @@
 package com.noticore.noticore_api.service;
 
+import com.noticore.noticore_api.dto.DnsRecordDto;
 import com.noticore.noticore_api.dto.DomainRequestDto;
 import com.noticore.noticore_api.dto.DomainResponseDto;
 import com.noticore.noticore_api.dto.TenantsDto;
@@ -12,6 +13,7 @@ import org.apache.commons.validator.routines.DomainValidator;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -37,9 +39,9 @@ public class TenantDomainsServiceImpl implements ITenantDomainsService {
             throw new DomainExistException(domainName);
         }
 
-        List<String> dkimTokens = iSesService.registerDomain(domainName);
+        Set<DnsRecordDto> dnsRecords = iSesService.registerDomain(domainName);
 
         return iTenantDomainsPersistenceService
-                .saveDomain(tenantDto, domainName, dkimTokens);
+                .saveDomain(tenantDto, domainName, dnsRecords);
     }
 }

@@ -2,6 +2,7 @@ package com.noticore.noticore_api.service;
 
 import com.noticore.noticore_api.converter.TenantDomainsConverter;
 import com.noticore.noticore_api.converter.TenantsConverter;
+import com.noticore.noticore_api.dto.DnsRecordDto;
 import com.noticore.noticore_api.dto.DomainResponseDto;
 import com.noticore.noticore_api.dto.TenantsDto;
 import com.noticore.noticore_api.entity.TenantDomains;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +28,7 @@ public class TenantDomainsPersistanceServiceImpl implements ITenantDomainsPersis
     public DomainResponseDto saveDomain(
             TenantsDto tenantsDto,
             String domainName,
-            List<String> dkimTokens
+            Set<DnsRecordDto> dnsRecords
     ) {
 
         Tenants tenants = tenantsConverter.convertToEntity(tenantsDto);
@@ -34,10 +36,11 @@ public class TenantDomainsPersistanceServiceImpl implements ITenantDomainsPersis
         TenantDomains tenantDomains = new TenantDomains();
         tenantDomains.setTenants(tenants);
         tenantDomains.setDomainName(domainName);
-        tenantDomains.setDkimToken(String.join(",", dkimTokens));
+        tenantDomains.setDnsRecords(dnsRecords);
         tenantDomains.setStatus(DomainStatus.PENDING);
 
         TenantDomains saved = tenantDomainsRepository.save(tenantDomains);
+        tenantDomainsRepository.flush();
 
         return tenantDomainsConverter.convertToDto(saved);
     }

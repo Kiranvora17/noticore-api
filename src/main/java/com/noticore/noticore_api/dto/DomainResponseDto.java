@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -14,7 +15,7 @@ import java.util.UUID;
 public class DomainResponseDto {
     private UUID id;
     private String domainName;
-    private String dkimToken;
+    private Set<DnsRecordDto> dnsRecords;
     private DomainStatus status;
     private LocalDateTime creationDate;
     private LocalDateTime modifiedDate;

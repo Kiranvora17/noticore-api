@@ -1,8 +1,10 @@
 package com.noticore.noticore_api.service.external;
 
-import java.util.List;
+import com.noticore.noticore_api.dto.DnsRecordDto;
+
+import java.util.Set;
 
 public interface ISesService {
 
-    List<String> registerDomain(String domainName);
+    Set<DnsRecordDto> registerDomain(String domainName);
 }
