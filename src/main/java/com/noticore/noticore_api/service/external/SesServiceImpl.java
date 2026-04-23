@@ -4,16 +4,17 @@ import com.noticore.noticore_api.dto.DnsRecordDto;
 import com.noticore.noticore_api.exception.ses.AWSConnectionException;
 import com.noticore.noticore_api.exception.ses.DomainRegisterationException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ses.SesClient;
-import software.amazon.awssdk.services.ses.model.SesException;
-import software.amazon.awssdk.services.ses.model.VerifyDomainDkimRequest;
-import software.amazon.awssdk.services.ses.model.VerifyDomainDkimResponse;
+import software.amazon.awssdk.services.ses.model.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SesServiceImpl implements ISesService {
@@ -45,6 +46,24 @@ public class SesServiceImpl implements ISesService {
             throw new DomainRegisterationException(s.getMessage());
         } catch (Exception e) {
             throw new AWSConnectionException(e.getMessage());
+        }
+    }
+
+    @Override
+    public Map<String, IdentityDkimAttributes> getDkimStatus(List<String> domainNames) {
+
+        try {
+            GetIdentityDkimAttributesResponse res = sesClient
+                    .getIdentityDkimAttributes(
+                            GetIdentityDkimAttributesRequest
+                                    .builder()
+                                    .identities(domainNames)
+                                    .build()
+                    );
+            return res.dkimAttributes();
+
+        } catch (SesException s) {
+            throw new AWSConnectionException(s.getMessage());
         }
     }
 }
