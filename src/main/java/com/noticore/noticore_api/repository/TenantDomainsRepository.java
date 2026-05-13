@@ -16,4 +16,5 @@ public interface TenantDomainsRepository extends JpaRepository<TenantDomains, UU
     List<TenantDomains> findAllByTenants_Id(UUID tenantId);
     Optional<TenantDomains> findByIdAndTenants_Id(UUID domainId, UUID tenantId);
     List<TenantDomains> findAllByStatus(DomainStatus status);
+    Optional<TenantDomains> findByDomainName(String domainName);
 }

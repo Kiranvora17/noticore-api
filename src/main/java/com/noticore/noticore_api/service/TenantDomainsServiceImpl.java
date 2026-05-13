@@ -16,7 +16,6 @@ import org.apache.commons.validator.routines.DomainValidator;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -64,11 +63,19 @@ public class TenantDomainsServiceImpl implements ITenantDomainsService {
     }
 
     @Override
-    public DomainResponseDto getDomain(TenantsDto tenantsDto, UUID domainId) {
+    public DomainResponseDto getDomainDto(TenantsDto tenantsDto, UUID domainId) {
         TenantDomains tenantDomains = tenantDomainsRepository
                 .findByIdAndTenants_Id(tenantsDto.getId(), domainId)
                 .orElseThrow(() -> new DomainNotFoundException(domainId));
 
         return tenantDomainsConverter.convertToDto(tenantDomains);
+    }
+
+    @Override
+    public TenantDomains getDomainEntityByName(String domainName) {
+
+        return tenantDomainsRepository
+                .findByDomainName(domainName)
+                .orElseThrow(() -> new DomainNotFoundException(domainName));
     }
 }

@@ -1,12 +1,16 @@
 package com.noticore.noticore_api.config;
 
+import org.apache.commons.validator.routines.DomainValidator;
+import org.apache.commons.validator.routines.EmailValidator;
 import org.modelmapper.ModelMapper;
+import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Configuration
@@ -32,5 +36,20 @@ public class AppConfig {
         executor.initialize();
 
         return executor;
+    }
+
+    @Bean
+    public AmqpAdmin amqpAdmin(ConnectionFactory connectionFactory) {
+        return new RabbitAdmin(connectionFactory);
+    }
+
+    @Bean
+    public EmailValidator emailValidator() {
+        return EmailValidator.getInstance();
+    }
+
+    @Bean
+    public DomainValidator domainValidator(){
+        return DomainValidator.getInstance();
     }
 }

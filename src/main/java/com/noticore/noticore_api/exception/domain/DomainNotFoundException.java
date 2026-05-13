@@ -9,4 +9,8 @@ public class DomainNotFoundException extends AppException {
     public DomainNotFoundException(UUID domainId) {
         super("Domain not found with id: " + domainId, 404, LocalDateTime.now());
     }
+
+    public DomainNotFoundException(String domainName) {
+        super("Domain not found with name: " + domainName, 404, LocalDateTime.now());
+    }
 }

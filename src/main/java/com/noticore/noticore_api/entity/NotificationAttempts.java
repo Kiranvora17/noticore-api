@@ -1,13 +1,18 @@
 package com.noticore.noticore_api.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.noticore.noticore_api.enums.NotificationAttemptStatus;
 import jakarta.persistence.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "notification_attempts")
+@Data
 public class NotificationAttempts {
 
     @Id
@@ -30,9 +35,11 @@ public class NotificationAttempts {
     private String errorMessage;
 
     @Column(name = "creation_date")
+    @CreationTimestamp
     private LocalDateTime creationDate;
 
     @Column(name = "modified_date")
+    @UpdateTimestamp
     private LocalDateTime modifiedDate;
 
 }

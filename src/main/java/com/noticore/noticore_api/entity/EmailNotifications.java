@@ -2,6 +2,7 @@ package com.noticore.noticore_api.entity;
 
 import com.noticore.noticore_api.enums.EmailNotificationStatus;
 import jakarta.persistence.*;
+import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "email_notifications")
+@Data
 public class EmailNotifications {
 
     @Id
@@ -45,9 +47,6 @@ public class EmailNotifications {
     @Column(name = "retry_count")
     private int retryCount;
 
-    @Column(name = "next_retry_at")
-    private LocalDateTime nextRetryAt;
-
     @Column(name = "error_message")
     private String errorMessage;
 
@@ -59,6 +58,6 @@ public class EmailNotifications {
     @UpdateTimestamp
     private LocalDateTime modifiedDate;
 
-    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "emailNotifications",fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NotificationAttempts> notificationAttempts;
 }

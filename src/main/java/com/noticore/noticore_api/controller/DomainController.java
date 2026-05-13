@@ -47,7 +47,7 @@ public class DomainController {
             HttpServletRequest httpServletRequest
             ) {
         TenantsDto tenantsDto = (TenantsDto) httpServletRequest.getAttribute("tenant");
-        DomainResponseDto response = iTenantDomainsService.getDomain(tenantsDto, id);
+        DomainResponseDto response = iTenantDomainsService.getDomainDto(tenantsDto, id);
         return ResponseEntity.ok(response);
     }
 

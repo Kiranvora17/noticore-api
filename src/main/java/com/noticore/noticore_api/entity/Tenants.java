@@ -35,5 +35,4 @@ public class Tenants {
     @OneToMany(mappedBy = "tenants", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TenantDomains> tenantDomains;
 
-
 }
