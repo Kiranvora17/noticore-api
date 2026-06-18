@@ -1,0 +1,88 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="add-ses-message-id-column-in-email-notifications-table-19-03" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="email_notifications" columnName="ses_message_id" />
+            </not>
+        </preConditions>
+
+        <addColumn tableName="email_notifications">
+            <column name="ses_message_id" type="VARCHAR(255)" defaultValue="">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+    
+    <changeSet id="add-index-in-the-ses-message-id-column-19-10" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="email_notifications" columnName="ses_message_id" />
+        </preConditions>
+        
+        <createIndex tableName="email_notifications" indexName="email_notifications_ses_message_id_index">
+            <column name="ses_message_id" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add-email-events-table-19-18" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="email_events" />
+            </not>
+        </preConditions>
+
+        <createTable tableName="email_events">
+            <column name="id" type="uuid">
+                <constraints nullable="false" primaryKey="true" />
+            </column>
+            <column name="notification_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="event_type" type="VARCHAR(50)" />
+            <column name="occurred_at" type="timestamp" />
+            <column name="payload" type="text" />
+            <column name="metadata" type="jsonb" />
+        </createTable>
+    </changeSet>
+    
+    <changeSet id="add-foreign-key-for-ses-message-id-to-notification-id-19-26" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <columnExists tableName="email_notifications" columnName="id" />
+                <columnExists tableName="email_events" columnName="notification_id" />
+            </and>
+        </preConditions>
+
+        <addForeignKeyConstraint baseTableName="email_events"
+                                 baseColumnNames="notification_id"
+                                 constraintName="email_events_email_notifications_foreign"
+                                 referencedTableName="email_notifications"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"
+                                 onUpdate="RESTRICT"
+        />
+    </changeSet>
+
+    <changeSet id="create-index-for-the-email-events-notification-id-column-19-48" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="email_events" columnName="notification_id" />
+        </preConditions>
+
+        <createIndex tableName="email_events" indexName="email_events_notification_id_index">
+            <column name="notification_id" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="update-email-notifications-status-check-constraint-20-00" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="email_notifications" />
+        </preConditions>
+
+        <sql>
+            ALTER TABLE email_notifications DROP CONSTRAINT IF EXISTS email_notifications_status_check;
+            ALTER TABLE email_notifications ADD CONSTRAINT email_notifications_status_check
+                CHECK (status IN ('QUEUED', 'PROCESSING', 'DELIVERED', 'PERMANENTLY_FAILED', 'BOUNCED_HARD', 'BOUNCED_SOFT', 'COMPLAINED', 'REJECTED', 'OPENED', 'CLICKED'));
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -12,5 +12,5 @@ public interface ISesService {
 
     Set<DnsRecordDto> registerDomain(String domainName);
     Map<String, IdentityDkimAttributes> getDkimStatus(List<String> domainName);
-    void sendEmail(SendEmailRequestDto sendEmailRequestDto);
+    String sendEmail(SendEmailRequestDto sendEmailRequestDto);
 }

@@ -1,0 +1,87 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="add-suppressed-email-table-15-16" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="suppressed_emails" />
+            </not>
+        </preConditions>
+
+        <createTable tableName="suppressed_emails">
+            <column name="id" type="uuid">
+                <constraints nullable="false" primaryKey="true" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="reason" type="VARCHAR(50)" >
+                <constraints nullable="false" />
+            </column>
+            <column name="creation_date" type="timestamp" />
+            <column name="modified_date" type="timestamp" />
+        </createTable>
+    </changeSet>
+    
+    <changeSet id="add-foreign-key-to-the-suppressed-emails-15-22" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <columnExists tableName="tenants" columnName="id" />
+                <columnExists tableName="suppressed_emails" columnName="tenant_id" />
+            </and>
+        </preConditions>
+
+        <addForeignKeyConstraint baseTableName="suppressed_emails"
+                                 baseColumnNames="tenant_id"
+                                 constraintName="suppressed_email_tenant_foreign"
+                                 referencedTableName="tenants"
+                                 referencedColumnNames="id"
+                                 onUpdate="RESTRICT"
+                                 onDelete="CASCADE" />
+    </changeSet>
+    
+    <changeSet id="add-unique-constraint-to-tenant-and-email-15-36" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <columnExists tableName="suppressed_emails" columnName="tenant_id" />
+                <columnExists tableName="suppressed_emails" columnName="email" />
+            </and>
+        </preConditions>
+        
+        <addUniqueConstraint tableName="suppressed_emails"
+                             columnNames="tenant_id, email"
+                             constraintName="tenant_id_emails_unique" />
+    </changeSet>
+
+    <changeSet id="add-index-to-email-column-in-suppressed-emails-table-15-27" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="suppressed_emails" columnName="email" />
+        </preConditions>
+
+        <createIndex tableName="suppressed_emails" indexName="suppressed_emails_email_index">
+            <column name="email" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add-index-to-tenants-id-on-suppressed-emails-table-15-31" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="suppressed_emails" columnName="tenant_id" />
+        </preConditions>
+
+        <createIndex tableName="suppressed_emails" indexName="suppressed_emails_tenant_id_index">
+            <column name="tenant_id" />
+        </createIndex>
+    </changeSet>
+    
+    <changeSet id="remove-not-null-constraint-in-ses-message-id-column-18-01" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="email_notifications" columnName="ses_message_id" />
+        </preConditions>
+
+        <dropNotNullConstraint tableName="email_notifications" columnName="ses_message_id" />
+    </changeSet>
+
+</databaseChangeLog>

@@ -10,5 +10,7 @@ public interface IEmailNotificationsPersistenceService {
 
     EmailNotifications saveEmailNotification(Tenants tenants, SendEmailRequestDto sendEmailRequestDto, TenantDomains tenantDomains);
     void updateEmailNotificationStatus(EmailNotifications emailNotifications, EmailNotificationStatus status, String errorMessage);
+    void updateEmailNotificationStatusBySesMessageId(EmailNotifications emailNotifications, EmailNotificationStatus status);
     void updateRetryCount(EmailNotifications emailNotifications);
+    void addSesMessageId(EmailNotifications emailNotifications, String sesMessageId);
 }

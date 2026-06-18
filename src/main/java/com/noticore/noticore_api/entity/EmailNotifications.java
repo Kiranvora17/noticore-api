@@ -58,6 +58,12 @@ public class EmailNotifications {
     @UpdateTimestamp
     private LocalDateTime modifiedDate;
 
+    @Column(name = "ses_message_id")
+    private String sesMessageId;
+
     @OneToMany(mappedBy = "emailNotifications",fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NotificationAttempts> notificationAttempts;
+
+    @OneToMany(mappedBy = "emailNotifications", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EmailEvents> emailEvents;
 }

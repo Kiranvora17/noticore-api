@@ -1,0 +1,15 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="add-email-events-status-constraint-15-23" author="kiran">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="emial_events" />
+        </preConditions>
+
+        <sql>
+            ALTER TABLE email_events DROP CONSTRAINT IF EXISTS email_events_event_type_check;
+            ALTER TABLE email_events ADD CONSTRAINT email_events_event_type_check
+            CHECK (event_type IN ('QUEUED', 'PROCESSING', 'DELIVERED', 'PERMANENTLY_FAILED', 'BOUNCED_HARD', 'BOUNCED_SOFT', 'COMPLAINED', 'REJECTED', 'OPENED', 'CLICKED'));
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -4,6 +4,11 @@ public enum EmailNotificationStatus {
     QUEUED,
     PROCESSING,
     DELIVERED,
-    FAILED,
-    PERMANENTLY_FAILED
+    PERMANENTLY_FAILED,
+    BOUNCED_HARD,
+    BOUNCED_SOFT,
+    COMPLAINED,
+    REJECTED,
+    OPENED,
+    CLICKED
 }

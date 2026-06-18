@@ -69,7 +69,7 @@ public class SesServiceImpl implements ISesService {
     }
 
     @Override
-    public void sendEmail(SendEmailRequestDto sendEmailRequestDto) throws SesException {
+    public String sendEmail(SendEmailRequestDto sendEmailRequestDto) throws SesException {
         Destination destination = Destination.builder()
                 .toAddresses(sendEmailRequestDto.getTo())
                 .build();
@@ -96,8 +96,10 @@ public class SesServiceImpl implements ISesService {
                 .destination(destination)
                 .message(msg)
                 .source(sendEmailRequestDto.getFrom())
+                .configurationSetName("noticore-events")
                 .build();
 
-        sesClient.sendEmail(emailRequest);
+        SendEmailResponse res = sesClient.sendEmail(emailRequest);
+        return res.messageId();
     }
 }

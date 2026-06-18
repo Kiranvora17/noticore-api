@@ -12,9 +12,11 @@ import com.noticore.noticore_api.enums.NotificationAttemptStatus;
 import com.noticore.noticore_api.exception.domain.DomainNotVerifiedException;
 import com.noticore.noticore_api.exception.domain.InvalidDomainException;
 import com.noticore.noticore_api.exception.email.InvalidEmailException;
+import com.noticore.noticore_api.exception.email.SuppressedEmailException;
 import com.noticore.noticore_api.exception.notification.NotificationNotFoundException;
 import com.noticore.noticore_api.rabbitMQ.EmailNotificationProducer;
 import com.noticore.noticore_api.repository.EmailNotificationsRepository;
+import com.noticore.noticore_api.repository.SuppressedEmailsRespository;
 import com.noticore.noticore_api.service.external.ISesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +46,7 @@ public class EmailServiceImpl implements IEmailService {
     private final EmailNotificationProducer emailNotificationProducer;
     private final EmailNotificationsRepository emailNotificationsRepository;
     private final EmailNotificationsConverter emailNotificationsConverter;
+    private final SuppressedEmailsRespository suppressedEmailsRespository;
     private final TenantsConverter tenantsConverter;
 
     private final EmailValidator emailValidator;
@@ -70,6 +73,12 @@ public class EmailServiceImpl implements IEmailService {
 
         if(!domainValidator.isValid(domain)) {
             throw new InvalidDomainException(domain);
+        }
+
+        boolean isSuppressed = suppressedEmailsRespository.existsByTenants_IdAndEmail(tenants.getId(), sendEmailRequestDto.getTo());
+
+        if(isSuppressed) {
+            throw new SuppressedEmailException(sendEmailRequestDto.getTo());
         }
 
         TenantDomains tenantDomain = iTenantDomainsService.getDomainEntityByName(domain);
@@ -121,19 +130,10 @@ public class EmailServiceImpl implements IEmailService {
 
         try {
             log.info("calling ses to send email...");
-            iSesService.sendEmail(sendEmailRequestDto);
+            String messageId = iSesService.sendEmail(sendEmailRequestDto);
             log.info("ses call was successfull, updating the status to delivered...");
-            iEmailNotificationsPersistenceService.updateEmailNotificationStatus(
-                    emailNotifications,
-                    EmailNotificationStatus.DELIVERED,
-                    null
-            );
+            iEmailNotificationsPersistenceService.addSesMessageId(emailNotifications, messageId);
             log.info("the status updated successfully, storing the attempts in the database...");
-            iNotificationAttemptsPersistentService.saveAttempt(
-                    emailNotifications,
-                    NotificationAttemptStatus.SUCCESS,
-                    null
-            );
             log.info("email attempts stored successfully");
         } catch (SesException s) {
             int statusCode = s.statusCode();

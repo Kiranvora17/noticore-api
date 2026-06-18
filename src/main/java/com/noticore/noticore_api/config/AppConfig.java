@@ -1,5 +1,6 @@
 package com.noticore.noticore_api.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.validator.routines.DomainValidator;
 import org.apache.commons.validator.routines.EmailValidator;
 import org.modelmapper.ModelMapper;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -51,5 +53,10 @@ public class AppConfig {
     @Bean
     public DomainValidator domainValidator(){
         return DomainValidator.getInstance();
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }

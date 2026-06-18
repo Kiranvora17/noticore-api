@@ -5,11 +5,15 @@
     import com.noticore.noticore_api.entity.TenantDomains;
     import com.noticore.noticore_api.entity.Tenants;
     import com.noticore.noticore_api.enums.EmailNotificationStatus;
+    import com.noticore.noticore_api.exception.base.AppException;
     import com.noticore.noticore_api.repository.EmailNotificationsRepository;
     import lombok.RequiredArgsConstructor;
     import lombok.extern.slf4j.Slf4j;
     import org.springframework.stereotype.Service;
     import org.springframework.transaction.annotation.Transactional;
+
+    import java.time.LocalDateTime;
+    import java.util.Optional;
 
     @Slf4j
     @Service
@@ -55,6 +59,24 @@
             if(errorMessage != null && !errorMessage.isEmpty()) {
                 emailNotifications.setErrorMessage(errorMessage);
             }
+            emailNotificationsRepository.save(emailNotifications);
+        }
+
+        @Override
+        @Transactional
+        public void updateEmailNotificationStatusBySesMessageId(
+                EmailNotifications emailNotifications,
+                EmailNotificationStatus status
+        ) {
+
+            emailNotifications.setEmailNotificationStatus(status);
+            emailNotificationsRepository.save(emailNotifications);
+        }
+
+        @Override
+        @Transactional
+        public void addSesMessageId(EmailNotifications emailNotifications, String sesMessageId) {
+            emailNotifications.setSesMessageId(sesMessageId);
             emailNotificationsRepository.save(emailNotifications);
         }
 
