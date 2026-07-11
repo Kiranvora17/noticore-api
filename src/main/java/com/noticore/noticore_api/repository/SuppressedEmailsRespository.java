@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface SuppressedEmailsRespository extends JpaRepository<SuppressedEmails, UUID> {
     Optional<SuppressedEmails> findByTenants_IdAndEmail(UUID tenantId, String email);
     boolean existsByTenants_IdAndEmail(UUID tenantId, String email);
+    void deleteByTenants_IdAndEmail(UUID tenantId, String email);
 }

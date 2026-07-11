@@ -41,9 +41,11 @@ public class EmailController {
 
     @GetMapping("/{notificationId}")
     public ResponseEntity<EmailNotificationsDto> getEmailNotification(
-            @PathVariable UUID notificationId) {
+            @PathVariable UUID notificationId,
+            HttpServletRequest httpServletRequest) {
+        TenantsDto tenantsDto = (TenantsDto) httpServletRequest.getAttribute("tenant");
         EmailNotificationsDto notification = iEmailService
-                .getEmailNotification(notificationId);
+                .getEmailNotification(tenantsDto, notificationId);
 
         return ResponseEntity.ok(notification);
     }

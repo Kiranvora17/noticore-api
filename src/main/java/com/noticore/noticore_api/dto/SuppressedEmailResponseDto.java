@@ -1,17 +1,19 @@
 package com.noticore.noticore_api.dto;
 
-import com.noticore.noticore_api.enums.NotificationAttemptStatus;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
-public class NotificationAttemptsDto {
+@AllArgsConstructor
+@NoArgsConstructor
+public class SuppressedEmailResponseDto {
     private UUID id;
-    private LocalDateTime attemptedAt;
-    private NotificationAttemptStatus status;
-    private String errorMessage;
+    private String email;
+    private String reason;
     private LocalDateTime creationDate;
     private LocalDateTime modifiedDate;
 }

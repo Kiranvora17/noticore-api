@@ -14,5 +14,5 @@ public interface IEmailService {
     void processEmail(UUID notificationId);
     void retrySendEmail(EmailNotifications emailNotifications);
     List<EmailNotificationsDto> getAll(TenantsDto tenantsDto);
-    EmailNotificationsDto getEmailNotification(UUID notificationId);
+    EmailNotificationsDto getEmailNotification(TenantsDto tenantsDto, UUID notificationId);
 }

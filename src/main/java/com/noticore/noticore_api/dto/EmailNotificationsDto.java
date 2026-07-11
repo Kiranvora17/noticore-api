@@ -10,8 +10,6 @@ import java.util.UUID;
 @Data
 public class EmailNotificationsDto {
     private UUID id;
-    private TenantsDto tenants;
-    private TenantDomainsDto tenantDomains;
     private String fromEmail;
     private String toEmail;
     private String subject;
@@ -22,4 +20,5 @@ public class EmailNotificationsDto {
     private LocalDateTime creationDate;
     private LocalDateTime modifiedDate;
     private List<NotificationAttemptsDto> notificationAttempts;
+    private List<EmailEventDto> emailEvents;
 }

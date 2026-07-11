@@ -201,14 +201,11 @@ public class EmailServiceImpl implements IEmailService {
 
     @Override
     @Transactional(readOnly = true)
-    public EmailNotificationsDto getEmailNotification(UUID notificationId) {
-        Optional<EmailNotifications> notification = emailNotificationsRepository
-                .findById(notificationId);
+    public EmailNotificationsDto getEmailNotification(TenantsDto tenantsDto, UUID notificationId) {
+        EmailNotifications notification = emailNotificationsRepository
+                .findByIdAndTenants_Id(notificationId, tenantsDto.getId())
+                .orElseThrow(() -> new NotificationNotFoundException(notificationId));
 
-        if(notification.isPresent()) {
-            return emailNotificationsConverter.covertToDto(notification.get());
-        }
-
-        return new EmailNotificationsDto();
+        return emailNotificationsConverter.covertToDto(notification);
     }
 }
