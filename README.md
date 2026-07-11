@@ -50,10 +50,28 @@ Noticore provides a simple REST API with **detailed deliverability intelligence*
 
 ### ✅ Notification Status Tracking
 Full status lifecycle tracking per notification:
+
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED
+    QUEUED --> PROCESSING
+    PROCESSING --> PROCESSING: retryable failure (429/5xx, retry < 3)
+    PROCESSING --> PERMANENTLY_FAILED: non-retryable SES error
+    PROCESSING --> PERMANENTLY_FAILED: retries exhausted (3)
+    PROCESSING --> DELIVERED: SNS delivery event
+    PROCESSING --> BOUNCED_HARD: SNS hard bounce
+    PROCESSING --> BOUNCED_SOFT: SNS soft bounce
+    PROCESSING --> COMPLAINED: SNS complaint
+    PROCESSING --> REJECTED: SNS reject
+    DELIVERED --> [*]
+    PERMANENTLY_FAILED --> [*]
+    BOUNCED_HARD --> [*]
+    BOUNCED_SOFT --> [*]
+    COMPLAINED --> [*]
+    REJECTED --> [*]
 ```
-QUEUED → PROCESSING → DELIVERED
-                    → FAILED → (retry) → PERMANENTLY_FAILED
-```
+
+`OPENED` and `CLICKED` are also valid `EmailNotificationStatus` values, but per `EmailEventsServiceImpl` they're recorded as `EmailEvents` history only and deliberately don't overwrite the notification's own status field.
 
 ### ✅ Deliverability Intelligence
 - SNS webhook integration for real-time delivery events (SES → Noticore)
@@ -113,35 +131,81 @@ POST   /api/v1/webhooks/sns         Receives AWS SES delivery events via SNS
 ## How It Works
 
 ### 1. Domain Registration Flow
-```
-Developer registers domain → API calls AWS SES verifyDomainDkim()
-→ Returns 3 CNAME records → Developer adds to DNS provider
-→ Background scheduler polls SES every 4 minutes
-→ Status updated to VERIFIED automatically
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant API as Noticore API
+    participant SES as AWS SES
+    participant DNS as DNS Provider
+    participant Sched as RefreshDomainStatus
+
+    Dev->>API: POST /api/v1/domains {domainName}
+    API->>SES: verifyDomainDkim()
+    SES-->>API: 3 DKIM CNAME records
+    API-->>Dev: 201 Created + DNS records
+    Dev->>DNS: Add CNAME records
+    loop every 4 minutes
+        Sched->>SES: getIdentityDkimAttributes()
+        SES-->>Sched: verification status
+        Sched->>Sched: update TenantDomains.status
+    end
+    Note over Sched: status: PENDING → VERIFIED
 ```
 
 ### 2. Email Sending Flow
-```
-POST /notifications/email
-→ Validate from domain is verified
-→ Save notification with status QUEUED
-→ Publish notification ID to RabbitMQ
-→ Return immediate response to developer
 
-@RabbitListener (background):
-→ Fetch notification from DB
-→ Update status to PROCESSING
-→ Call AWS SES to send email
-→ On success → wait for SNS delivery event
-→ On failure → retry up to 3 times via Dead Letter Exchange
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant API as EmailController
+    participant Svc as EmailServiceImpl
+    participant MQ as RabbitMQ
+    participant Cons as EmailNotificationConsumer
+    participant SES as AWS SES
+
+    Dev->>API: POST /notifications/email
+    API->>Svc: sendEmail()
+    Svc->>Svc: validate email / domain / suppression list
+    Svc->>Svc: save notification (status = QUEUED)
+    Svc->>MQ: publish notificationId
+    Svc-->>Dev: 200 OK {notificationId}
+    MQ->>Cons: deliver message
+    Cons->>Svc: processEmail(id)
+    Svc->>Svc: status = PROCESSING
+    Svc->>SES: sendEmail()
+    alt success
+        SES-->>Svc: sesMessageId
+        Svc->>Svc: store ses_message_id
+    else retryable (429 / 5xx / SdkClientException)
+        Svc->>MQ: publish to retry queue (5 min TTL)
+        Svc->>Svc: retryCount += 1
+    else permanent failure
+        Svc->>Svc: status = PERMANENTLY_FAILED
+    end
 ```
 
 ### 3. Delivery Tracking Flow
-```
-AWS SES → SNS Topic → POST /api/v1/webhooks/sns
-→ Parse delivery event (delivered/bounced/complained)
-→ Update notification status in DB
-→ Developer queries status via GET /notifications/email/{id}
+
+```mermaid
+sequenceDiagram
+    participant SES as AWS SES
+    participant SNS as SNS Topic
+    participant Web as SnsWebhookController
+    participant Evt as EmailEventsServiceImpl
+    participant DB as PostgreSQL
+    participant Dev as Developer
+
+    SES->>SNS: delivery / bounce / complaint event
+    SNS->>Web: POST /api/v1/webhooks/sns
+    Web->>Evt: handleEmailEvents()
+    Evt->>DB: save EmailEvents row
+    Evt->>DB: update EmailNotifications.status
+    opt hard bounce or complaint
+        Evt->>DB: add to suppressed_emails
+    end
+    Dev->>DB: GET /notifications/email/{id}
+    DB-->>Dev: current status + event history
 ```
 
 ---
@@ -150,32 +214,34 @@ AWS SES → SNS Topic → POST /api/v1/webhooks/sns
 
 **Layers** (traced through the actual package structure):
 
-```
-Controller          → parses HTTP, reads the tenant off the request attribute
-    ↓
-Service (business)  → validation, orchestration, exception raising
-    ↓
-Persistence Service  → entity <-> DTO conversion, save/update calls
-    ↓
-Repository (Spring Data JPA)
-    ↓
-PostgreSQL
+```mermaid
+flowchart TD
+    A["Controller<br/>(HTTP concerns, reads tenant off request attribute)"] --> B["Service<br/>(validation, orchestration, exceptions)"]
+    B --> C["Persistence Service<br/>(entity ↔ DTO conversion, save/update)"]
+    C --> D["Repository<br/>(Spring Data JPA)"]
+    D --> E[(PostgreSQL)]
 ```
 
 Email sending fans out into an async leg:
 
-```
-Client → EmailController.sendEmail()
-       → EmailServiceImpl (validate → persist QUEUED → publish to RabbitMQ)
-       → returns 200 immediately
+```mermaid
+flowchart LR
+    Client -->|"POST /notifications/email"| EC[EmailController]
+    EC --> ES[EmailServiceImpl]
+    ES -->|"validate, save QUEUED"| DB1[(PostgreSQL)]
+    ES -->|"publish notificationId"| MQ{{"noticore.email.queue"}}
+    ES -->|"200 OK"| Client
 
-RabbitMQ (noticore.email.queue)
-       → EmailNotificationConsumer.recieveEmailEvent()
-       → EmailServiceImpl.processEmail() → SesServiceImpl → AWS SES
+    MQ --> Cons[EmailNotificationConsumer]
+    Cons --> PE["EmailServiceImpl.processEmail()"]
+    PE --> SES_Svc[SesServiceImpl]
+    SES_Svc --> SES[(AWS SES)]
 
-AWS SES → SNS Topic → SnsWebhookController → SnsWebhookServiceImpl
-       → EmailEventsServiceImpl (resolve event type, persist EmailEvents,
-         update notification status, auto-suppress on hard bounce/complaint)
+    SES -->|"delivery / bounce / complaint"| SNS{{"SNS Topic"}}
+    SNS --> Web[SnsWebhookController]
+    Web --> WebSvc[SnsWebhookServiceImpl]
+    WebSvc --> Evt[EmailEventsServiceImpl]
+    Evt -->|"persist EmailEvents, update status,<br/>auto-suppress on hard bounce/complaint"| DB2[(PostgreSQL)]
 ```
 
 Every controller (except `/api/v1/webhooks/**`, which SNS calls directly) goes through `RequestInterceptor`, which resolves/creates the `Tenants` row for the `X-RapidAPI-User` header and attaches it to the request before the controller method runs.
@@ -184,42 +250,112 @@ Every controller (except `/api/v1/webhooks/**`, which SNS calls directly) goes t
 
 A concrete trace through `EmailController` → `EmailServiceImpl` → `EmailNotificationConsumer`:
 
-```
-1. RequestInterceptor resolves/creates the Tenants row for X-RapidAPI-User
-2. EmailController.sendEmail() reads the tenant off the request attribute
-3. EmailServiceImpl.sendEmail():
-     - EmailValidator checks `from` and `to` are valid addresses
-     - DomainValidator checks the sender domain is syntactically valid
-     - SuppressedEmailsRespository checked — reject with 422 if `to` is suppressed
-     - TenantDomainsRepository checked — reject with 4xx if the sending domain
-       isn't VERIFIED
-     - EmailNotifications row saved with status QUEUED, retryCount 0
-     - notification ID published to the "noticore.email.queue" exchange
-     - 200 OK returned to the caller with the notification ID
-4. EmailNotificationConsumer (@RabbitListener) picks up the ID
-5. EmailServiceImpl.processEmail():
-     - status set to PROCESSING
-     - SesServiceImpl.sendEmail() calls AWS SES
-     - on success: ses_message_id stored on the notification
-     - on SesException (429 / 5xx) or SdkClientException: republished to the
-       retry queue, retryCount incremented (see Reliability Features below)
-     - on other SesException: status set to PERMANENTLY_FAILED, a FAILED
-       NotificationAttempts row is recorded
-6. (later, async) SES emits a delivery/bounce/complaint event via SNS →
-   SnsWebhookController → EmailEventsServiceImpl updates the notification's
-   final status and records an EmailEvents row
+```mermaid
+sequenceDiagram
+    autonumber
+    participant RI as RequestInterceptor
+    participant EC as EmailController
+    participant ES as EmailServiceImpl
+    participant MQ as RabbitMQ
+    participant Cons as EmailNotificationConsumer
+    participant SES as SesServiceImpl
+
+    RI->>RI: resolve/create Tenants row for X-RapidAPI-User
+    EC->>ES: sendEmail(tenant, request)
+    ES->>ES: EmailValidator checks from/to
+    ES->>ES: DomainValidator checks sender domain
+    ES->>ES: reject 422 if `to` is suppressed
+    ES->>ES: reject 4xx if sending domain not VERIFIED
+    ES->>ES: save EmailNotifications (QUEUED, retryCount=0)
+    ES->>MQ: publish notificationId to "noticore.email.queue"
+    ES-->>EC: 200 OK {notificationId}
+    MQ->>Cons: deliver notificationId
+    Cons->>ES: processEmail(id)
+    ES->>ES: status = PROCESSING
+    ES->>SES: sendEmail()
+    alt success
+        SES-->>ES: ses_message_id
+        ES->>ES: store ses_message_id on notification
+    else SesException 429/5xx or SdkClientException
+        ES->>MQ: republish to retry queue
+        ES->>ES: retryCount += 1 (see Reliability Features)
+    else other SesException
+        ES->>ES: status = PERMANENTLY_FAILED
+        ES->>ES: record FAILED NotificationAttempts row
+    end
+    Note over SES: later, async — SNS delivers the terminal<br/>delivery/bounce/complaint event, handled by<br/>EmailEventsServiceImpl (see Delivery Tracking Flow)
 ```
 
 ---
 
 ## Database Design
 
-Six tables, all UUID-keyed. Relationships (`entity/*.java`, enforced via Liquibase foreign keys):
+Six tables, all UUID-keyed. Relationships and columns (`entity/*.java`, enforced via Liquibase foreign keys):
 
-```
-tenants ──< tenant_domains ──< email_notifications ──< notification_attempts
-   │                                    │            └─< email_events
-   └────────────────────────────< suppressed_emails
+```mermaid
+erDiagram
+    TENANTS ||--o{ TENANT_DOMAINS : has
+    TENANTS ||--o{ EMAIL_NOTIFICATIONS : owns
+    TENANTS ||--o{ SUPPRESSED_EMAILS : owns
+    TENANT_DOMAINS ||--o{ EMAIL_NOTIFICATIONS : "sends from"
+    EMAIL_NOTIFICATIONS ||--o{ NOTIFICATION_ATTEMPTS : has
+    EMAIL_NOTIFICATIONS ||--o{ EMAIL_EVENTS : has
+
+    TENANTS {
+        uuid id PK
+        string rapidapi_username UK
+        timestamp creation_date
+        timestamp modified_date
+    }
+    TENANT_DOMAINS {
+        uuid id PK
+        uuid tenant_id FK
+        string domain_name
+        text dns_records
+        string status
+        timestamp creation_date
+        timestamp modified_date
+    }
+    EMAIL_NOTIFICATIONS {
+        uuid id PK
+        uuid tenant_id FK
+        uuid domain FK
+        string from_email
+        string to_email
+        string subject
+        text body
+        string status
+        int retry_count
+        text error_message
+        string ses_message_id
+        timestamp creation_date
+        timestamp modified_date
+    }
+    NOTIFICATION_ATTEMPTS {
+        uuid id PK
+        uuid notification_id FK
+        timestamp attempted_at
+        string status
+        text error_message
+        timestamp creation_date
+        timestamp modified_date
+    }
+    EMAIL_EVENTS {
+        uuid id PK
+        uuid notification_id FK
+        string event_type
+        timestamp occurred_at
+        text payload
+        text metadata
+    }
+    SUPPRESSED_EMAILS {
+        uuid id PK
+        uuid tenant_id FK
+        string email
+        string reason
+        timestamp creation_date
+        timestamp modified_date
+    }
 ```
 
 - **tenants** — one row per RapidAPI subscriber (`rapidapi_username`, unique). Lazily created by `RequestInterceptor` on first request.
@@ -282,15 +418,38 @@ Industry standard approach — verifies domain ownership via DKIM DNS records, e
 
 All domain errors extend `AppException` (`status`, `message`, `timestamp`), caught centrally by `GlobalExceptionHandler` and serialized as a consistent `ErrorResponse`; anything uncaught falls through to a generic 500 handler.
 
+```mermaid
+classDiagram
+    class AppException {
+        +int status
+        +String message
+        +LocalDateTime timestamp
+    }
+    AppException <|-- DomainExistException
+    AppException <|-- DomainNotFoundException
+    AppException <|-- DomainNotVerifiedException
+    AppException <|-- InvalidDomainException
+    AppException <|-- InvalidEmailException
+    AppException <|-- SuppressedEmailException
+    AppException <|-- SuppressedEmailExistException
+    AppException <|-- SuppressedEmailNotFoundException
+    AppException <|-- NotificationNotFoundException
+    AppException <|-- AWSConnectionException
+    AppException <|-- DomainRegisterationException
 ```
-AppException (base: status, message, timestamp)
- ├─ domain/   DomainExistException (409), DomainNotFoundException (404),
- │            DomainNotVerifiedException, InvalidDomainException (400)
- ├─ email/    InvalidEmailException (400), SuppressedEmailException (422),
- │            SuppressedEmailExistException (409), SuppressedEmailNotFoundException (404)
- ├─ notification/  NotificationNotFoundException (404)
- └─ ses/      AWSConnectionException, DomainRegisterationException
-```
+
+| Package | Exception | Status |
+|---|---|---|
+| `domain/` | `DomainExistException` | 409 |
+| `domain/` | `DomainNotFoundException` | 404 |
+| `domain/` | `DomainNotVerifiedException` | — |
+| `domain/` | `InvalidDomainException` | 400 |
+| `email/` | `InvalidEmailException` | 400 |
+| `email/` | `SuppressedEmailException` | 422 |
+| `email/` | `SuppressedEmailExistException` | 409 |
+| `email/` | `SuppressedEmailNotFoundException` | 404 |
+| `notification/` | `NotificationNotFoundException` | 404 |
+| `ses/` | `AWSConnectionException`, `DomainRegisterationException` | — |
 
 Inside the email-send worker path specifically, SES/AWS SDK exceptions are caught and reclassified into the retry-vs-permanent-failure decision described above, rather than bubbling up as generic errors.
 
