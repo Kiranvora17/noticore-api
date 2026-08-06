@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  app:
+    image: kiranvora81/noticore-api:latest
+    container_name: noticore-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - /etc/noticore.env
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: always
+    networks:
+      - noticore-network
+
+  postgres:
+    image: postgres:15
+    container_name: noticore-postgres
+    environment:
+      POSTGRES_DB: noticore
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Kiran@300805
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - noticore-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: noticore-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "15672:15672"
+    restart: always
+    networks:
+      - noticore-network
+
+volumes:
+  postgres_data:
+
+networks:
+  noticore-network:
+    driver: bridge
