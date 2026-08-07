@@ -18,6 +18,6 @@ public class RequestIntercepterConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(requestInterceptor)
-                .excludePathPatterns("/api/v1/webhooks/**");
+                .excludePathPatterns("/api/v1/webhooks/**", "/api/v1/health");
     }
 }

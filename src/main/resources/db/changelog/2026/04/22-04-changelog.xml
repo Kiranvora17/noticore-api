@@ -7,5 +7,5 @@
         </preConditions>
         
         <renameColumn tableName="tenant_domains" oldColumnName="dkim_token" newColumnName="dns_records" />
-    </changeSet> 
+    </changeSet>
 </databaseChangeLog>
