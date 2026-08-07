@@ -3,6 +3,7 @@ version: '3.8'
 services:
   app:
     image: kiranvora81/noticore-api:latest
+    pull_policy: always
     container_name: noticore-api
     ports:
       - "8080:8080"
