@@ -43,7 +43,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             docker pull ${{ secrets.DOCKER_USERNAME }}/noticore-api:latest
-            docker-compose -f /home/ubuntu/docker-compose.yml down
-            docker-compose -f /home/ubuntu/docker-compose.yml up -d
+            docker compose -f /home/ubuntu/docker-compose.yml down
+            docker compose -f /home/ubuntu/docker-compose.yml up -d
             docker system prune -f
             
