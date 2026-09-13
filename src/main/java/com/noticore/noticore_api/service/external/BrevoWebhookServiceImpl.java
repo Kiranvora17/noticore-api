@@ -45,16 +45,17 @@ public class BrevoWebhookServiceImpl implements IBrevoWebhookService {
     }
 
     /**
-     * Brevo does not sign webhook payloads. Authentication is done by configuring
-     * HTTP Basic Auth credentials directly in the webhook URL on Brevo's side
-     * (https://user:pass@yourdomain.com/api/v1/webhooks/brevo), which Brevo then
-     * sends back as a standard Authorization header on every delivery.
+     * Brevo does not sign webhook payloads. Authentication is configured as
+     * "Basic" auth with a dedicated username/password on the webhook itself
+     * (Transactional email > Settings > Webhook), which Brevo then sends as a
+     * standard Authorization header on every delivery.
      */
     private boolean isValidAuth(String authorizationHeader) {
-        log.info("TEMP-DEBUG raw Authorization header: [{}]", authorizationHeader);
-
-        if (authorizationHeader == null || !authorizationHeader.startsWith(BASIC_PREFIX)) {
-            log.info("TEMP-DEBUG header missing or does not start with 'Basic '");
+        // The auth-scheme token ("Basic") is case-insensitive per RFC 7235.
+        // Brevo sends it lowercase ("basic ..."), so this must not be a
+        // case-sensitive prefix check.
+        if (authorizationHeader == null
+                || !authorizationHeader.regionMatches(true, 0, BASIC_PREFIX, 0, BASIC_PREFIX.length())) {
             return false;
         }
 
@@ -73,15 +74,11 @@ public class BrevoWebhookServiceImpl implements IBrevoWebhookService {
 
             int separatorIndex = decoded.indexOf(':');
             if (separatorIndex < 0) {
-                log.info("TEMP-DEBUG decoded auth has no ':' separator: [{}]", decoded);
                 return false;
             }
 
             String username = decoded.substring(0, separatorIndex);
             String password = decoded.substring(separatorIndex + 1);
-
-            log.info("TEMP-DEBUG decoded username=[{}] password=[{}] | expected username=[{}] password=[{}]",
-                    username, password, expectedUsername, expectedPassword);
 
             return MessageDigest.isEqual(
                     username.getBytes(StandardCharsets.UTF_8),
