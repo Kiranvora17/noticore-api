@@ -6,6 +6,7 @@ import com.noticore.noticore_api.dto.DnsRecordDto;
 import com.noticore.noticore_api.exception.brevo.BrevoConnectionException;
 import com.noticore.noticore_api.exception.brevo.BrevoDomainNotFoundException;
 import com.noticore.noticore_api.exception.brevo.DomainRegisterationException;
+import com.noticore.noticore_api.exception.domain.DomainExistException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,13 @@ public class BrevoServiceImpl implements IBrevoService {
 
         try {
             restTemplate.postForEntity(BASE_URL + "/senders/domains", createRequest, JsonNode.class);
+        } catch (HttpClientErrorException e) {
+            if (isDuplicateDomainError(e)) {
+                log.warn("Domain {} is already registered with Brevo.", domainName);
+                throw new DomainExistException(domainName);
+            }
+            log.error("Failed to register domain with Brevo: {}", e.getMessage());
+            throw new DomainRegisterationException("Failed to register domain with Brevo: " + e.getMessage());
         } catch (RestClientException e) {
             log.error("Failed to register domain with Brevo: {}", e.getMessage());
             throw new DomainRegisterationException("Failed to register domain with Brevo: " + e.getMessage());
@@ -120,6 +128,11 @@ public class BrevoServiceImpl implements IBrevoService {
         }
     }
 
+    private boolean isDuplicateDomainError(HttpClientErrorException e) {
+        String body = e.getResponseBodyAsString();
+        return body != null && body.contains("duplicate_parameter");
+    }
+
     private HttpHeaders buildHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("api-key", brevoConfig.getApiKey());
@@ -169,7 +182,6 @@ public class BrevoServiceImpl implements IBrevoService {
         DnsRecordDto dto = new DnsRecordDto();
         dto.setType(StringUtils.defaultIfBlank(node.path("type").asText(null), defaultType).toUpperCase());
         dto.setHost(host);
-        dto.setName(host);
         dto.setValue(value);
         records.add(dto);
     }

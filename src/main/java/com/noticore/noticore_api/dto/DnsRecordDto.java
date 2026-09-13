@@ -5,7 +5,6 @@ import lombok.Data;
 @Data
 public class DnsRecordDto {
     private String type;
-    private String name;
     private String value;
     private String host;
 }
