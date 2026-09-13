@@ -51,7 +51,10 @@ public class BrevoWebhookServiceImpl implements IBrevoWebhookService {
      * sends back as a standard Authorization header on every delivery.
      */
     private boolean isValidAuth(String authorizationHeader) {
+        log.info("TEMP-DEBUG raw Authorization header: [{}]", authorizationHeader);
+
         if (authorizationHeader == null || !authorizationHeader.startsWith(BASIC_PREFIX)) {
+            log.info("TEMP-DEBUG header missing or does not start with 'Basic '");
             return false;
         }
 
@@ -70,11 +73,15 @@ public class BrevoWebhookServiceImpl implements IBrevoWebhookService {
 
             int separatorIndex = decoded.indexOf(':');
             if (separatorIndex < 0) {
+                log.info("TEMP-DEBUG decoded auth has no ':' separator: [{}]", decoded);
                 return false;
             }
 
             String username = decoded.substring(0, separatorIndex);
             String password = decoded.substring(separatorIndex + 1);
+
+            log.info("TEMP-DEBUG decoded username=[{}] password=[{}] | expected username=[{}] password=[{}]",
+                    username, password, expectedUsername, expectedPassword);
 
             return MessageDigest.isEqual(
                     username.getBytes(StandardCharsets.UTF_8),
