@@ -65,7 +65,7 @@ public class TenantDomainsServiceImpl implements ITenantDomainsService {
     @Override
     public DomainResponseDto getDomainDto(TenantsDto tenantsDto, UUID domainId) {
         TenantDomains tenantDomains = tenantDomainsRepository
-                .findByIdAndTenants_Id(tenantsDto.getId(), domainId)
+                .findByIdAndTenants_Id(domainId, tenantsDto.getId())
                 .orElseThrow(() -> new DomainNotFoundException(domainId));
 
         return tenantDomainsConverter.convertToDto(tenantDomains);
