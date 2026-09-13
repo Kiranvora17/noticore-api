@@ -2,6 +2,7 @@ package com.noticore.noticore_api.exception;
 
 import com.noticore.noticore_api.dto.ErrorResponse;
 import com.noticore.noticore_api.exception.base.AppException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,11 +11,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ErrorResponse> handleAppException(AppException ex) {
+        log.warn("AppException: {} (status {})", ex.getMessage(), ex.getStatus());
 
         ErrorResponse response = new ErrorResponse(
                 ex.getStatus(),
@@ -43,6 +46,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
 
         ErrorResponse response = new ErrorResponse(
                 500,
