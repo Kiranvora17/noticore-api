@@ -10,5 +10,7 @@ public enum EmailNotificationStatus {
     COMPLAINED,
     REJECTED,
     OPENED,
-    CLICKED
+    CLICKED,
+    DEFERRED,
+    UNSUBSCRIBED
 }

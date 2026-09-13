@@ -54,16 +54,22 @@ public class EmailEventsPersistenceServiceImpl implements IEmailEventsPersistenc
     private Map<String, String> extractMetadata(BrevoEventDto event, EmailNotificationStatus status) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("provider", "brevo");
+        metadata.put("brevoEvent", event.getEvent());
 
         switch (status) {
             case DELIVERED -> metadata.put("messageId", event.getMessageId());
+
+            case DEFERRED -> {
+                metadata.put("reason", event.getReason());
+                metadata.put("messageId", event.getMessageId());
+            }
 
             case BOUNCED_HARD, BOUNCED_SOFT -> {
                 metadata.put("reason", event.getReason());
                 metadata.put("messageId", event.getMessageId());
             }
 
-            case COMPLAINED -> metadata.put("messageId", event.getMessageId());
+            case COMPLAINED, UNSUBSCRIBED -> metadata.put("messageId", event.getMessageId());
 
             case REJECTED -> {
                 metadata.put("reason", event.getReason());

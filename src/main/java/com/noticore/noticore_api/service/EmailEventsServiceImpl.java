@@ -31,6 +31,16 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
         }
 
         String messageId = eventDto.getMessageId();
+
+        // Brevo's "spam" event does not include message-id, so there is nothing
+        // reliable to correlate it to a specific notification. Skip rather than
+        // fail the webhook delivery or guess based on recipient email alone,
+        // which could misattribute the complaint to the wrong tenant.
+        if (messageId == null || messageId.isBlank()) {
+            log.warn("Received {} event with no message-id; cannot correlate to a notification, skipping.", eventDto.getEvent());
+            return;
+        }
+
         EmailNotifications emailNotifications = emailNotificationsRepository.findByProviderMessageId(messageId).orElseThrow(
                 () -> new AppException("Notification not found with provider message id: " + messageId, 404, LocalDateTime.now())
         );
@@ -44,10 +54,10 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
         }
 
         // 3. Add to suppression list if needed
-        if (status == EmailNotificationStatus.BOUNCED_HARD) {
-            iSuppressedEmailsService.addSuppression(emailNotifications, EmailNotificationStatus.BOUNCED_HARD);
-        } else if (status == EmailNotificationStatus.COMPLAINED) {
-            iSuppressedEmailsService.addSuppression(emailNotifications, EmailNotificationStatus.COMPLAINED);
+        if (status == EmailNotificationStatus.BOUNCED_HARD
+                || status == EmailNotificationStatus.COMPLAINED
+                || status == EmailNotificationStatus.UNSUBSCRIBED) {
+            iSuppressedEmailsService.addSuppression(emailNotifications, status);
         }
     }
 
@@ -60,13 +70,15 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
 
         return switch (type) {
             case "delivered" -> EmailNotificationStatus.DELIVERED;
+            case "deferred" -> EmailNotificationStatus.DEFERRED;
             case "hard_bounce" -> EmailNotificationStatus.BOUNCED_HARD;
             case "soft_bounce" -> EmailNotificationStatus.BOUNCED_SOFT;
             case "spam" -> EmailNotificationStatus.COMPLAINED;
             case "invalid_email", "blocked" -> EmailNotificationStatus.REJECTED;
-            case "opened" -> EmailNotificationStatus.OPENED;
+            case "opened", "unique_opened", "proxy_open" -> EmailNotificationStatus.OPENED;
             case "click" -> EmailNotificationStatus.CLICKED;
-            default -> null; // "request", "deferred", "unsubscribed", etc. — ignore
+            case "unsubscribed" -> EmailNotificationStatus.UNSUBSCRIBED;
+            default -> null; // "request", "error", "unique_proxy_open" — ignore
         };
     }
 }
