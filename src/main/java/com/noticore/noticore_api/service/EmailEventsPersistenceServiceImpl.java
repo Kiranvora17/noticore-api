@@ -4,9 +4,7 @@ import com.noticore.noticore_api.dto.BrevoEventDto;
 import com.noticore.noticore_api.entity.EmailEvents;
 import com.noticore.noticore_api.entity.EmailNotifications;
 import com.noticore.noticore_api.enums.EmailNotificationStatus;
-import com.noticore.noticore_api.exception.base.AppException;
 import com.noticore.noticore_api.repository.EmailEventsRepository;
-import com.noticore.noticore_api.repository.EmailNotificationsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -23,27 +20,18 @@ import java.util.UUID;
 @Slf4j
 public class EmailEventsPersistenceServiceImpl implements IEmailEventsPersistenceService {
 
-    private final EmailNotificationsRepository emailNotificationsRepository;
     private final EmailEventsRepository emailEventsRepository;
 
     @Override
     @Transactional
-    public void addEmailEvent(EmailNotificationStatus status, String payload, BrevoEventDto brevoEventDto) {
-        String messageId = brevoEventDto.getMessageId();
-
-        Optional<EmailNotifications> emailNotifications = emailNotificationsRepository.findByProviderMessageId(messageId);
-
-        if(!emailNotifications.isPresent()) {
-            throw new AppException("email notification not found with message id: "+ messageId , 404, LocalDateTime.now());
-        }
-
+    public void addEmailEvent(EmailNotifications emailNotifications, EmailNotificationStatus status, String payload, BrevoEventDto brevoEventDto) {
         Map<String, String> metadata = extractMetadata(brevoEventDto, status);
 
         EmailEvents emailEvents = new EmailEvents();
 
         emailEvents.setId(UUID.randomUUID());
         emailEvents.setEventType(status.toString());
-        emailEvents.setEmailNotifications(emailNotifications.get());
+        emailEvents.setEmailNotifications(emailNotifications);
         emailEvents.setOccurredAt(LocalDateTime.now());
         emailEvents.setPayload(payload);
         emailEvents.setMetadata(metadata);

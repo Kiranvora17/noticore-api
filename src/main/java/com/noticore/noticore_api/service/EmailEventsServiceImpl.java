@@ -30,7 +30,7 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
             return;
         }
 
-        String messageId = eventDto.getMessageId();
+        String messageId = normalizeMessageId(eventDto.getMessageId());
 
         // Brevo's "spam" event does not include message-id, so there is nothing
         // reliable to correlate it to a specific notification. Skip rather than
@@ -42,11 +42,14 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
         }
 
         EmailNotifications emailNotifications = emailNotificationsRepository.findByProviderMessageId(messageId).orElseThrow(
-                () -> new AppException("Notification not found with provider message id: " + messageId, 404, LocalDateTime.now())
+                () -> {
+                    log.warn("Received {} event for unknown provider message id: {}", eventDto.getEvent(), messageId);
+                    return new AppException("Notification not found with provider message id: " + messageId, 404, LocalDateTime.now());
+                }
         );
 
         // 1. Save event to email_events
-        iEmailEventsPersistenceService.addEmailEvent(status, message, eventDto);
+        iEmailEventsPersistenceService.addEmailEvent(emailNotifications, status, message, eventDto);
 
         // 2. Update email_notifications status (skip for OPENED/CLICKED)
         if (status != EmailNotificationStatus.OPENED && status != EmailNotificationStatus.CLICKED) {
@@ -59,6 +62,12 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
                 || status == EmailNotificationStatus.UNSUBSCRIBED) {
             iSuppressedEmailsService.addSuppression(emailNotifications, status);
         }
+    }
+
+    // Our own generated Message-ID is stored without angle brackets, but Brevo
+    // echoes it back in the standard RFC 5322 "<...>" form on webhook events.
+    private String normalizeMessageId(String messageId) {
+        return messageId == null ? null : messageId.replaceAll("[<>]", "").trim();
     }
 
     private EmailNotificationStatus resolveStatus(BrevoEventDto event) {
