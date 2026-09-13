@@ -13,8 +13,11 @@ public class BrevoConfig {
     @Value("${brevo.api.key}")
     private String apiKey;
 
-    @Value("${brevo.webhook.secret}")
-    private String webhookSecret;
+    @Value("${brevo.webhook.username}")
+    private String webhookUsername;
+
+    @Value("${brevo.webhook.password}")
+    private String webhookPassword;
 
     @Bean
     public RestTemplate restTemplate() {

@@ -21,10 +21,10 @@ public class BrevoWebhookController {
     @PostMapping("/brevo")
     public ResponseEntity<Void> handleBrevoEvent(
             @RequestBody String payload,
-            @RequestHeader(value = "X-Brevo-Signature", required = false) String signature
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         log.info("Brevo webhook event received.");
-        brevoWebhookService.handle(payload, signature);
+        brevoWebhookService.handle(payload, authorizationHeader);
         return ResponseEntity.ok().build();
     }
 }

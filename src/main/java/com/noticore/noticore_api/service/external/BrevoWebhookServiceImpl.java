@@ -9,29 +9,27 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
+import java.util.Base64;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BrevoWebhookServiceImpl implements IBrevoWebhookService {
 
-    private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final String BASIC_PREFIX = "Basic ";
 
     private final BrevoConfig brevoConfig;
     private final ObjectMapper objectMapper;
     private final IEmailEventsService iEmailEventsService;
 
     @Override
-    public void handle(String payload, String signature) {
-        if (!isValidSignature(payload, signature)) {
-            log.warn("Invalid Brevo webhook signature received.");
-            throw new AppException("Invalid webhook signature", 401, LocalDateTime.now());
+    public void handle(String payload, String authorizationHeader) {
+        if (!isValidAuth(authorizationHeader)) {
+            log.warn("Invalid or missing Brevo webhook credentials.");
+            throw new AppException("Invalid webhook credentials", 401, LocalDateTime.now());
         }
 
         try {
@@ -46,23 +44,47 @@ public class BrevoWebhookServiceImpl implements IBrevoWebhookService {
         }
     }
 
-    private boolean isValidSignature(String payload, String signature) {
-        if (signature == null || signature.isBlank()) {
+    /**
+     * Brevo does not sign webhook payloads. Authentication is done by configuring
+     * HTTP Basic Auth credentials directly in the webhook URL on Brevo's side
+     * (https://user:pass@yourdomain.com/api/v1/webhooks/brevo), which Brevo then
+     * sends back as a standard Authorization header on every delivery.
+     */
+    private boolean isValidAuth(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith(BASIC_PREFIX)) {
+            return false;
+        }
+
+        String expectedUsername = brevoConfig.getWebhookUsername();
+        String expectedPassword = brevoConfig.getWebhookPassword();
+
+        if (expectedUsername == null || expectedUsername.isBlank()
+                || expectedPassword == null || expectedPassword.isBlank()) {
+            log.error("Brevo webhook username/password is not configured.");
             return false;
         }
 
         try {
-            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(new SecretKeySpec(brevoConfig.getWebhookSecret().getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            byte[] computed = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            String computedHex = HexFormat.of().formatHex(computed);
+            String encoded = authorizationHeader.substring(BASIC_PREFIX.length());
+            String decoded = new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
+
+            int separatorIndex = decoded.indexOf(':');
+            if (separatorIndex < 0) {
+                return false;
+            }
+
+            String username = decoded.substring(0, separatorIndex);
+            String password = decoded.substring(separatorIndex + 1);
 
             return MessageDigest.isEqual(
-                    computedHex.getBytes(StandardCharsets.UTF_8),
-                    signature.trim().getBytes(StandardCharsets.UTF_8)
+                    username.getBytes(StandardCharsets.UTF_8),
+                    expectedUsername.getBytes(StandardCharsets.UTF_8)
+            ) && MessageDigest.isEqual(
+                    password.getBytes(StandardCharsets.UTF_8),
+                    expectedPassword.getBytes(StandardCharsets.UTF_8)
             );
-        } catch (Exception e) {
-            log.error("Error validating Brevo webhook signature: {}", e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            log.error("Error decoding Brevo webhook Authorization header: {}", e.getMessage(), e);
             return false;
         }
     }
