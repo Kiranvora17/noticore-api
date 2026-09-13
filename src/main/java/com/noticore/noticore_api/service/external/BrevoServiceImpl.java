@@ -85,6 +85,7 @@ public class BrevoServiceImpl implements IBrevoService {
 
         HttpEntity<Void> request = new HttpEntity<>(buildHeaders());
 
+        JsonNode body;
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
                     BASE_URL + "/senders/domains/" + domainName,
@@ -92,14 +93,35 @@ public class BrevoServiceImpl implements IBrevoService {
                     request,
                     JsonNode.class
             );
-
-            JsonNode body = response.getBody();
-            return body != null && body.path("authenticated").asBoolean(false);
+            body = response.getBody();
         } catch (HttpClientErrorException.NotFound e) {
             throw new BrevoDomainNotFoundException(domainName);
         } catch (RestClientException e) {
             log.error("Failed to fetch domain status from Brevo: {}", e.getMessage());
             throw new BrevoConnectionException("Failed to fetch domain status from Brevo: " + e.getMessage());
+        }
+
+        if (body != null && body.path("authenticated").asBoolean(false)) {
+            return true;
+        }
+
+        // Brevo does not authenticate a domain automatically once DNS matches -
+        // it must be explicitly triggered via this endpoint (the same action the
+        // dashboard's "Authenticate domain" button performs).
+        try {
+            restTemplate.exchange(
+                    BASE_URL + "/senders/domains/" + domainName + "/authenticate",
+                    HttpMethod.PUT,
+                    request,
+                    JsonNode.class
+            );
+            return true;
+        } catch (HttpClientErrorException e) {
+            log.info("Domain {} not ready to authenticate yet: {}", domainName, e.getMessage());
+            return false;
+        } catch (RestClientException e) {
+            log.error("Failed to trigger authentication for domain {}: {}", domainName, e.getMessage());
+            throw new BrevoConnectionException("Failed to trigger authentication for domain: " + e.getMessage());
         }
     }
 
