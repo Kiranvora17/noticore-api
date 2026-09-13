@@ -11,7 +11,6 @@ import com.noticore.noticore_api.repository.EmailNotificationsRepository;
 import com.noticore.noticore_api.service.IEmailNotificationsPersistenceService;
 import com.noticore.noticore_api.service.IEmailService;
 import com.noticore.noticore_api.service.INotificationAttemptsPersistentService;
-import com.noticore.noticore_api.service.external.ISesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -24,7 +23,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class EmailNotificationConsumer {
 
-    private final ISesService iSesService;
     private final IEmailNotificationsPersistenceService iEmailNotificationsPersistenceService;
     private final INotificationAttemptsPersistentService iNotificationAttemptsPersistentService;
     private final IEmailService iEmailService;

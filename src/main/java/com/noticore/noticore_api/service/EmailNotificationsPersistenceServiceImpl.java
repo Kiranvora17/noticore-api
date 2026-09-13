@@ -64,7 +64,7 @@
 
         @Override
         @Transactional
-        public void updateEmailNotificationStatusBySesMessageId(
+        public void updateEmailNotificationStatusByProviderMessageId(
                 EmailNotifications emailNotifications,
                 EmailNotificationStatus status
         ) {
@@ -75,8 +75,8 @@
 
         @Override
         @Transactional
-        public void addSesMessageId(EmailNotifications emailNotifications, String sesMessageId) {
-            emailNotifications.setSesMessageId(sesMessageId);
+        public void addProviderMessageId(EmailNotifications emailNotifications, String providerMessageId) {
+            emailNotifications.setProviderMessageId(providerMessageId);
             emailNotificationsRepository.save(emailNotifications);
         }
 

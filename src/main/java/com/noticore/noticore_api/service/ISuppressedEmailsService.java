@@ -1,6 +1,5 @@
 package com.noticore.noticore_api.service;
 
-import com.noticore.noticore_api.dto.SesEventDto;
 import com.noticore.noticore_api.dto.SuppressedEmailRequestDto;
 import com.noticore.noticore_api.dto.SuppressedEmailResponseDto;
 import com.noticore.noticore_api.dto.TenantsDto;

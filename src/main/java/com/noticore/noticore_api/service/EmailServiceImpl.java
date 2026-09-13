@@ -17,16 +17,17 @@ import com.noticore.noticore_api.exception.notification.NotificationNotFoundExce
 import com.noticore.noticore_api.rabbitMQ.EmailNotificationProducer;
 import com.noticore.noticore_api.repository.EmailNotificationsRepository;
 import com.noticore.noticore_api.repository.SuppressedEmailsRespository;
-import com.noticore.noticore_api.service.external.ISesService;
+import com.noticore.noticore_api.service.external.IBrevoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.validator.routines.DomainValidator;
 import org.apache.commons.validator.routines.EmailValidator;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailException;
+import org.springframework.mail.MailSendException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.services.ses.model.SesException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,7 +41,7 @@ import java.util.UUID;
 public class EmailServiceImpl implements IEmailService {
 
     private final ITenantDomainsService iTenantDomainsService;
-    private final ISesService iSesService;
+    private final IBrevoService iBrevoService;
     private final INotificationAttemptsPersistentService iNotificationAttemptsPersistentService;
     private final IEmailNotificationsPersistenceService iEmailNotificationsPersistenceService;
     private final EmailNotificationProducer emailNotificationProducer;
@@ -108,7 +109,7 @@ public class EmailServiceImpl implements IEmailService {
 
     @Override
     public void processEmail(UUID id) {
-        log.info("recieved notification id via ses, id: {}", id);
+        log.info("recieved notification id, id: {}", id);
 
         EmailNotifications emailNotifications = emailNotificationsRepository
                 .findById(id)
@@ -121,52 +122,64 @@ public class EmailServiceImpl implements IEmailService {
                 null
         );
 
-        SendEmailRequestDto sendEmailRequestDto = new SendEmailRequestDto();
-
-        sendEmailRequestDto.setFrom(emailNotifications.getFromEmail());
-        sendEmailRequestDto.setTo(emailNotifications.getToEmail());
-        sendEmailRequestDto.setSubject(emailNotifications.getSubject());
-        sendEmailRequestDto.setBody(emailNotifications.getBody());
-
         try {
-            log.info("calling ses to send email...");
-            String messageId = iSesService.sendEmail(sendEmailRequestDto);
-            log.info("ses call was successfull, updating the status to delivered...");
-            iEmailNotificationsPersistenceService.addSesMessageId(emailNotifications, messageId);
-            log.info("the status updated successfully, storing the attempts in the database...");
+            log.info("calling brevo to send email...");
+            String messageId = iBrevoService.sendEmail(
+                    emailNotifications.getFromEmail(),
+                    emailNotifications.getToEmail(),
+                    emailNotifications.getSubject(),
+                    emailNotifications.getBody()
+            );
+            log.info("brevo call was successfull, storing the provider message id...");
+            iEmailNotificationsPersistenceService.addProviderMessageId(emailNotifications, messageId);
             log.info("email attempts stored successfully");
-        } catch (SesException s) {
-            int statusCode = s.statusCode();
-
-            if(statusCode == 429 || statusCode >= 500) {
-                // retryable method called
-                log.info("exception occurred. publishing notification to retry queue.");
-                retrySendEmail(emailNotifications);
-                log.info("notification is successfully published to retry queue.");
-            } else {
-                // mark notification to permanently failed
-                log.info("exception occurred. marking the status to permanently failed.");
+        } catch (MailAuthenticationException e) {
+            // permanent - SMTP credentials/config issue, not retryable
+            log.info("mail authentication exception occurred. marking the status to permanently failed.");
+            iEmailNotificationsPersistenceService.updateEmailNotificationStatus(
+                    emailNotifications,
+                    EmailNotificationStatus.PERMANENTLY_FAILED,
+                    e.getMessage()
+            );
+            iNotificationAttemptsPersistentService
+                    .saveAttempt(
+                            emailNotifications,
+                            NotificationAttemptStatus.FAILED,
+                            e.getMessage()
+                    );
+        } catch (MailSendException e) {
+            if (isPermanentSmtpFailure(e)) {
+                log.info("permanent smtp failure occurred. marking the status to permanently failed.");
                 iEmailNotificationsPersistenceService.updateEmailNotificationStatus(
                         emailNotifications,
                         EmailNotificationStatus.PERMANENTLY_FAILED,
-                        s.getMessage()
+                        e.getMessage()
                 );
-                log.info("stroing retry attempt in the database.");
                 iNotificationAttemptsPersistentService
                         .saveAttempt(
                                 emailNotifications,
                                 NotificationAttemptStatus.FAILED,
-                                s.getMessage()
+                                e.getMessage()
                         );
+            } else {
+                log.info("transient smtp failure occurred. publishing notification to retry queue.");
+                retrySendEmail(emailNotifications);
             }
-        } catch (SdkClientException s) {
-            // retryable method call
-            log.info("client side exception occurred. publishing notification to retry queue.");
+        } catch (MailException e) {
+            // connectivity or other transient issue - retry
+            log.info("mail exception occurred. publishing notification to retry queue.");
             retrySendEmail(emailNotifications);
-            log.info("notification is successfully published to retry queue.");
         }
+    }
 
-
+    private boolean isPermanentSmtpFailure(MailSendException e) {
+        for (Exception cause : e.getMessageExceptions()) {
+            String message = cause.getMessage();
+            if (message != null && message.matches("(?s).*\\b5\\d{2}\\b.*")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

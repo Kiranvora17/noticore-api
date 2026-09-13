@@ -1,4 +1,4 @@
-package com.noticore.noticore_api.exception.ses;
+package com.noticore.noticore_api.exception.brevo;
 
 import com.noticore.noticore_api.exception.base.AppException;
 

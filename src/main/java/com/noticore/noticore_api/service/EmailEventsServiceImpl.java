@@ -1,6 +1,6 @@
 package com.noticore.noticore_api.service;
 
-import com.noticore.noticore_api.dto.SesEventDto;
+import com.noticore.noticore_api.dto.BrevoEventDto;
 import com.noticore.noticore_api.entity.EmailNotifications;
 import com.noticore.noticore_api.enums.EmailNotificationStatus;
 import com.noticore.noticore_api.exception.base.AppException;
@@ -22,18 +22,17 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
     private final EmailNotificationsRepository emailNotificationsRepository;
 
     @Override
-    public void handleEmailEvents(SesEventDto eventDto, String message) {
+    public void handleEmailEvents(BrevoEventDto eventDto, String message) {
         EmailNotificationStatus status = resolveStatus(eventDto);
 
         if (status == null) {
-            log.info("Ignoring event type: {}",
-                    eventDto.getNotificationType() != null ? eventDto.getNotificationType() : eventDto.getEventType());
+            log.info("Ignoring event type: {}", eventDto.getEvent());
             return;
         }
 
-        String messageId = eventDto.getMail().getMessageId();
-        EmailNotifications emailNotifications = emailNotificationsRepository.findBySesMessageId(messageId).orElseThrow(
-                () -> new AppException("Notification not found with ses message id: " + messageId, 404, LocalDateTime.now())
+        String messageId = eventDto.getMessageId();
+        EmailNotifications emailNotifications = emailNotificationsRepository.findByProviderMessageId(messageId).orElseThrow(
+                () -> new AppException("Notification not found with provider message id: " + messageId, 404, LocalDateTime.now())
         );
 
         // 1. Save event to email_events
@@ -41,7 +40,7 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
 
         // 2. Update email_notifications status (skip for OPENED/CLICKED)
         if (status != EmailNotificationStatus.OPENED && status != EmailNotificationStatus.CLICKED) {
-            iEmailNotificationsPersistenceService.updateEmailNotificationStatusBySesMessageId(emailNotifications, status);
+            iEmailNotificationsPersistenceService.updateEmailNotificationStatusByProviderMessageId(emailNotifications, status);
         }
 
         // 3. Add to suppression list if needed
@@ -52,31 +51,22 @@ public class EmailEventsServiceImpl implements IEmailEventsService {
         }
     }
 
-    private EmailNotificationStatus resolveStatus(SesEventDto event) {
-        String type = event.getNotificationType() != null
-                ? event.getNotificationType()
-                : event.getEventType();
+    private EmailNotificationStatus resolveStatus(BrevoEventDto event) {
+        String type = event.getEvent();
+
+        if (type == null) {
+            return null;
+        }
 
         return switch (type) {
-            case "Delivery" -> EmailNotificationStatus.DELIVERED;
-            case "Complaint" -> EmailNotificationStatus.COMPLAINED;
-            case "Reject" -> EmailNotificationStatus.REJECTED;
-            case "Open" -> EmailNotificationStatus.OPENED;
-            case "Click" -> EmailNotificationStatus.CLICKED;
-            case "Bounce" -> resolveBounceStatus(event);
-            default -> null; // "Send" and unknown types — ignore
+            case "delivered" -> EmailNotificationStatus.DELIVERED;
+            case "hard_bounce" -> EmailNotificationStatus.BOUNCED_HARD;
+            case "soft_bounce" -> EmailNotificationStatus.BOUNCED_SOFT;
+            case "spam" -> EmailNotificationStatus.COMPLAINED;
+            case "invalid_email", "blocked" -> EmailNotificationStatus.REJECTED;
+            case "opened" -> EmailNotificationStatus.OPENED;
+            case "click" -> EmailNotificationStatus.CLICKED;
+            default -> null; // "request", "deferred", "unsubscribed", etc. — ignore
         };
-    }
-
-    private EmailNotificationStatus resolveBounceStatus(SesEventDto event) {
-        if (event.getBounce() == null) return null;
-
-        String bounceType = event.getBounce().getBounceType();
-        if ("Permanent".equals(bounceType)) {
-            return EmailNotificationStatus.BOUNCED_HARD;
-        } else if ("Transient".equals(bounceType)) {
-            return EmailNotificationStatus.BOUNCED_SOFT;
-        }
-        return null;
     }
 }

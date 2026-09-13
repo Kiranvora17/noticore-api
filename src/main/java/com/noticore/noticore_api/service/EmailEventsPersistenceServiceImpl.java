@@ -1,6 +1,6 @@
 package com.noticore.noticore_api.service;
 
-import com.noticore.noticore_api.dto.*;
+import com.noticore.noticore_api.dto.BrevoEventDto;
 import com.noticore.noticore_api.entity.EmailEvents;
 import com.noticore.noticore_api.entity.EmailNotifications;
 import com.noticore.noticore_api.enums.EmailNotificationStatus;
@@ -28,16 +28,16 @@ public class EmailEventsPersistenceServiceImpl implements IEmailEventsPersistenc
 
     @Override
     @Transactional
-    public void addEmailEvent(EmailNotificationStatus status, String payload, SesEventDto sesEventDto) {
-        String messageId = sesEventDto.getMail().getMessageId();
+    public void addEmailEvent(EmailNotificationStatus status, String payload, BrevoEventDto brevoEventDto) {
+        String messageId = brevoEventDto.getMessageId();
 
-        Optional<EmailNotifications> emailNotifications = emailNotificationsRepository.findBySesMessageId(messageId);
+        Optional<EmailNotifications> emailNotifications = emailNotificationsRepository.findByProviderMessageId(messageId);
 
         if(!emailNotifications.isPresent()) {
             throw new AppException("email notification not found with message id: "+ messageId , 404, LocalDateTime.now());
         }
 
-        Map<String, String> metadata = extractMetadata(sesEventDto, status);
+        Map<String, String> metadata = extractMetadata(brevoEventDto, status);
 
         EmailEvents emailEvents = new EmailEvents();
 
@@ -51,55 +51,33 @@ public class EmailEventsPersistenceServiceImpl implements IEmailEventsPersistenc
         emailEventsRepository.save(emailEvents);
     }
 
-    private Map<String, String> extractMetadata(SesEventDto event, EmailNotificationStatus status) {
+    private Map<String, String> extractMetadata(BrevoEventDto event, EmailNotificationStatus status) {
         Map<String, String> metadata = new HashMap<>();
+        metadata.put("provider", "brevo");
 
         switch (status) {
-            case DELIVERED -> {
-                DeliveryDto delivery = event.getDelivery();
-                if (delivery != null) {
-                    metadata.put("processingTimeMillis", String.valueOf(delivery.getProcessingTimeMillis()));
-                    metadata.put("smtpResponse", delivery.getSmtpResponse());
-                }
-            }
+            case DELIVERED -> metadata.put("messageId", event.getMessageId());
 
             case BOUNCED_HARD, BOUNCED_SOFT -> {
-                BounceDto bounce = event.getBounce();
-                if (bounce != null) {
-                    metadata.put("bounceType", bounce.getBounceType());
-                    metadata.put("bounceSubType", bounce.getBounceSubType());
-                    if (bounce.getBouncedRecipients() != null && !bounce.getBouncedRecipients().isEmpty()) {
-                        metadata.put("diagnosticCode", bounce.getBouncedRecipients().get(0).getDiagnosticCode());
-                    }
-                }
+                metadata.put("reason", event.getReason());
+                metadata.put("messageId", event.getMessageId());
             }
 
-            case COMPLAINED -> {
-                ComplaintDto complaint = event.getComplaint();
-                if (complaint != null) {
-                    metadata.put("complaintFeedbackType", complaint.getComplaintFeedbackType());
-                }
-            }
+            case COMPLAINED -> metadata.put("messageId", event.getMessageId());
 
             case REJECTED -> {
-                metadata.put("reason", "Bad content");
+                metadata.put("reason", event.getReason());
+                metadata.put("messageId", event.getMessageId());
             }
 
             case OPENED -> {
-                OpenDto open = event.getOpen();
-                if (open != null) {
-                    metadata.put("ipAddress", open.getIpAddress());
-                    metadata.put("userAgent", open.getUserAgent());
-                }
+                metadata.put("ipAddress", event.getIp());
+                metadata.put("userAgent", event.getUserAgent());
             }
 
             case CLICKED -> {
-                ClickDto click = event.getClick();
-                if (click != null) {
-                    metadata.put("ipAddress", click.getIpAddress());
-                    metadata.put("userAgent", click.getUserAgent());
-                    metadata.put("link", click.getLink());
-                }
+                metadata.put("link", event.getLink());
+                metadata.put("ipAddress", event.getIp());
             }
 
             default -> log.warn("No metadata extraction defined for event type: {}", status);

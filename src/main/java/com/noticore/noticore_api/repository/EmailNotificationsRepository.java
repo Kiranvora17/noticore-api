@@ -11,6 +11,6 @@ import java.util.UUID;
 @Repository
 public interface EmailNotificationsRepository extends JpaRepository<EmailNotifications, UUID> {
     Optional<List<EmailNotifications>> findAllByTenants_Id(UUID tenantId);
-    Optional<EmailNotifications> findBySesMessageId(String messageId);
+    Optional<EmailNotifications> findByProviderMessageId(String messageId);
     Optional<EmailNotifications> findByIdAndTenants_Id(UUID id, UUID tenantId);
 }

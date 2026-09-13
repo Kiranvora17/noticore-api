@@ -10,7 +10,7 @@ import com.noticore.noticore_api.exception.domain.DomainExistException;
 import com.noticore.noticore_api.exception.domain.DomainNotFoundException;
 import com.noticore.noticore_api.exception.domain.InvalidDomainException;
 import com.noticore.noticore_api.repository.TenantDomainsRepository;
-import com.noticore.noticore_api.service.external.ISesService;
+import com.noticore.noticore_api.service.external.IBrevoService;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.validator.routines.DomainValidator;
 import org.springframework.stereotype.Service;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TenantDomainsServiceImpl implements ITenantDomainsService {
 
-    private final ISesService iSesService;
+    private final IBrevoService iBrevoService;
     private final ITenantDomainsPersistenceService iTenantDomainsPersistenceService;
     private final TenantDomainsRepository tenantDomainsRepository;
     private final TenantDomainsConverter tenantDomainsConverter;
@@ -45,7 +45,7 @@ public class TenantDomainsServiceImpl implements ITenantDomainsService {
             throw new DomainExistException(domainName);
         }
 
-        Set<DnsRecordDto> dnsRecords = iSesService.registerDomain(domainName);
+        Set<DnsRecordDto> dnsRecords = iBrevoService.registerDomain(domainName);
 
         return iTenantDomainsPersistenceService
                 .saveDomain(tenantDto, domainName, dnsRecords);
