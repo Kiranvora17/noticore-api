@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -88,12 +89,24 @@ public class SuppressedEmailsServiceImpl implements ISuppressedEmailsService{
 
     @Override
     @Transactional
-    public void removeSuppression(TenantsDto tenantsDto, String email) {
+    public SuppressedEmailResponseDto removeSuppression(TenantsDto tenantsDto, String email) {
         String normalizedEmail = email.trim().toLowerCase();
 
-        suppressedEmailsRespository.findByTenants_IdAndEmail(tenantsDto.getId(), normalizedEmail)
+        SuppressedEmails suppressedEmails = suppressedEmailsRespository
+                .findByTenants_IdAndEmail(tenantsDto.getId(), normalizedEmail)
                 .orElseThrow(() -> new SuppressedEmailNotFoundException(normalizedEmail));
 
         suppressedEmailsRespository.deleteByTenants_IdAndEmail(tenantsDto.getId(), normalizedEmail);
+
+        return suppressedEmailsConverter.convertToDto(suppressedEmails);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SuppressedEmailResponseDto> getAllSuppressions(TenantsDto tenantsDto) {
+        return suppressedEmailsRespository.findAllByTenants_Id(tenantsDto.getId())
+                .stream()
+                .map(suppressedEmailsConverter::convertToDto)
+                .toList();
     }
 }

@@ -51,4 +51,14 @@ public class DomainController {
         return ResponseEntity.ok(response);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDomain(
+            @PathVariable UUID id,
+            HttpServletRequest httpServletRequest
+    ) {
+        TenantsDto tenantsDto = (TenantsDto) httpServletRequest.getAttribute("tenant");
+        iTenantDomainsService.deleteDomain(tenantsDto, id);
+        return ResponseEntity.noContent().build();
+    }
+
 }

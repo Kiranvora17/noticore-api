@@ -150,6 +150,28 @@ public class BrevoServiceImpl implements IBrevoService {
         }
     }
 
+    @Override
+    public void deleteDomain(String domainName) {
+        log.info("Deleting domain from Brevo: {}", domainName);
+
+        HttpEntity<Void> request = new HttpEntity<>(buildHeaders());
+
+        try {
+            restTemplate.exchange(
+                    BASE_URL + "/senders/domains/" + domainName,
+                    HttpMethod.DELETE,
+                    request,
+                    Void.class
+            );
+        } catch (HttpClientErrorException.NotFound e) {
+            // Already gone on Brevo's side - nothing left to do.
+            log.warn("Domain {} was not found on Brevo when deleting; treating as already removed.", domainName);
+        } catch (RestClientException e) {
+            log.error("Failed to delete domain from Brevo: {}", e.getMessage());
+            throw new BrevoConnectionException("Failed to delete domain from Brevo: " + e.getMessage());
+        }
+    }
+
     private boolean isDuplicateDomainError(HttpClientErrorException e) {
         String body = e.getResponseBodyAsString();
         return body != null && body.contains("duplicate_parameter");

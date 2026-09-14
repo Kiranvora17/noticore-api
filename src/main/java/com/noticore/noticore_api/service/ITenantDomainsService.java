@@ -14,4 +14,5 @@ public interface ITenantDomainsService {
     List<DomainResponseDto> getAllDomains(TenantsDto tenantsDto);
     DomainResponseDto getDomainDto(TenantsDto tenantsDto, UUID domainId);
     TenantDomains getDomainEntityByName(String domainName);
+    void deleteDomain(TenantsDto tenantsDto, UUID domainId);
 }

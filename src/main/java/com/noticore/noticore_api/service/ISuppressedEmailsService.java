@@ -7,8 +7,11 @@ import com.noticore.noticore_api.entity.EmailNotifications;
 import com.noticore.noticore_api.entity.Tenants;
 import com.noticore.noticore_api.enums.EmailNotificationStatus;
 
+import java.util.List;
+
 public interface ISuppressedEmailsService {
     void addSuppression(EmailNotifications emailNotifications, EmailNotificationStatus status);
     SuppressedEmailResponseDto addManualSuppression(TenantsDto tenantsDto, SuppressedEmailRequestDto request);
-    void removeSuppression(TenantsDto tenantsDto, String email);
+    SuppressedEmailResponseDto removeSuppression(TenantsDto tenantsDto, String email);
+    List<SuppressedEmailResponseDto> getAllSuppressions(TenantsDto tenantsDto);
 }

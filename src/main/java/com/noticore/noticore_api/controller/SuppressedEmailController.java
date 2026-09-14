@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/suppressions")
 @RequiredArgsConstructor
@@ -27,14 +29,23 @@ public class SuppressedEmailController {
         return ResponseEntity.status(201).body(response);
     }
 
+    @GetMapping
+    public ResponseEntity<List<SuppressedEmailResponseDto>> getAllSuppressions(
+            HttpServletRequest httpServletRequest
+    ) {
+        TenantsDto tenant = (TenantsDto) httpServletRequest.getAttribute("tenant");
+        List<SuppressedEmailResponseDto> response = iSuppressedEmailsService.getAllSuppressions(tenant);
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/{email}")
-    public ResponseEntity<Void> removeSuppression(
+    public ResponseEntity<SuppressedEmailResponseDto> removeSuppression(
             @PathVariable String email,
             HttpServletRequest httpServletRequest
     ) {
         TenantsDto tenant = (TenantsDto) httpServletRequest.getAttribute("tenant");
-        iSuppressedEmailsService.removeSuppression(tenant, email);
-        return ResponseEntity.noContent().build();
+        SuppressedEmailResponseDto response = iSuppressedEmailsService.removeSuppression(tenant, email);
+        return ResponseEntity.ok(response);
     }
 
 }

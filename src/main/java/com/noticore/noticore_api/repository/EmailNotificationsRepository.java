@@ -13,4 +13,5 @@ public interface EmailNotificationsRepository extends JpaRepository<EmailNotific
     Optional<List<EmailNotifications>> findAllByTenants_Id(UUID tenantId);
     Optional<EmailNotifications> findByProviderMessageId(String messageId);
     Optional<EmailNotifications> findByIdAndTenants_Id(UUID id, UUID tenantId);
+    boolean existsByTenantDomains_Id(UUID domainId);
 }

@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface TenantDomainsRepository extends JpaRepository<TenantDomains, UUID> {
 
     boolean existsByDomainNameAndTenants_Id(String domainName, UUID tenantId);
+    boolean existsByDomainNameAndTenants_IdNot(String domainName, UUID tenantId);
     List<TenantDomains> findAllByTenants_Id(UUID tenantId);
     Optional<TenantDomains> findByIdAndTenants_Id(UUID domainId, UUID tenantId);
     List<TenantDomains> findAllByStatus(DomainStatus status);
