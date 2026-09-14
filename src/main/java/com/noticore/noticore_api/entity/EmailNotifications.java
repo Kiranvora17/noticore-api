@@ -3,6 +3,7 @@ package com.noticore.noticore_api.entity;
 import com.noticore.noticore_api.enums.EmailNotificationStatus;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -61,9 +62,14 @@ public class EmailNotifications {
     @Column(name = "provider_message_id")
     private String providerMessageId;
 
+    // @BatchSize turns N per-row lazy-load queries (one per notification) into
+    // batches of up to 25 loaded via a single "WHERE notification_id IN (...)"
+    // query, instead of a query-per-row N+1 pattern.
     @OneToMany(mappedBy = "emailNotifications",fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 25)
     private List<NotificationAttempts> notificationAttempts;
 
     @OneToMany(mappedBy = "emailNotifications", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 25)
     private List<EmailEvents> emailEvents;
 }
