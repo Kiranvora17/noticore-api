@@ -433,23 +433,9 @@ Sending goes through Spring's `JavaMailSender` against Brevo's SMTP relay rather
 - **Delivery event history** — every Brevo webhook event (delivered, hard/soft bounce, spam complaint, deferred, blocked/invalid, unsubscribed, open, click) is persisted as an `EmailEvents` row with extracted metadata, giving per-notification deliverability detail beyond a single status field.
 - **Automatic suppression** — a hard bounce, spam complaint, or unsubscribe event adds the recipient to `suppressed_emails` for that tenant (`SuppressedEmailsServiceImpl.addSuppression`); `EmailServiceImpl.sendEmail` checks this list and rejects sends to suppressed addresses with a 422 before they ever reach the queue.
 - **N+1 query mitigation** — `EmailNotifications.notificationAttempts` and `.emailEvents` (both lazy `@OneToMany`) are annotated `@BatchSize(size = 25)`, batching what would otherwise be one query per notification into a single `WHERE notification_id IN (...)` call.
-- **Connection pool sizing** — HikariCP `maximum-pool-size` is 30 (`minimum-idle=4`, `connection-timeout=30000`ms), raised from the Spring Boot default of 10 after load testing surfaced pool exhaustion under concurrent load (see [Performance](#performance)).
+- **Connection pool sizing** — HikariCP `maximum-pool-size` is 30 (`minimum-idle=4`, `connection-timeout=30000`ms), raised from the Spring Boot default of 10 after load testing surfaced pool exhaustion under concurrent load.
 
 **Not implemented today:** there's no idempotency key on `POST /notifications/email` — a retried client request creates a second `EmailNotifications` row and sends a duplicate email. See [Known Limitations](#known-limitations).
-
----
-
-## Performance
-
-The API was load tested with [k6](https://k6.io) directly against the production EC2 instance, hitting only read-only, database-backed endpoints (list/get notifications, list/get domains) — no email sending or domain registration, to avoid burning real Brevo sends/registrations.
-
-| Run | Conditions | Failure rate | Throughput | Latency | Root cause / outcome |
-|---|---|---|---|---|---|
-| 1 | Synthetic tenant, staged up to 500 VUs | 50.10% | — | p95 ≈ 247ms | False failures — the synthetic tenant had no data, so by-ID lookups against real IDs (owned by a different tenant) correctly 404'd |
-| 2 | Real tenant, 100 VUs | 12.80% | — | Bimodal, tail up to 60s | HikariCP pool (default size 10) exhausted, compounded by an N+1 query pattern on `notificationAttempts`/`emailEvents` |
-| 3 | Real tenant, 100 VUs, after fixes | 23.58% | 58.9 req/s | p90 324ms, p95 12.01s | `@BatchSize(25)` + HikariCP pool raised to 30; throughput accepted as sufficient for initial launch traffic |
-
-Further tuning was deliberately deferred — ~59 req/s comfortably exceeds the expected initial traffic for a newly-launched API (see [Brevo Usage](#brevo-usage) sending-volume estimate).
 
 ---
 
@@ -627,7 +613,7 @@ Prerequisites: Java 17, a local PostgreSQL instance, a local RabbitMQ instance, 
 | Email sending (async, via Brevo SMTP relay) | ✅ Complete |
 | Brevo webhook (inbound, Basic Auth, updates internal status) | ✅ Complete |
 | Retry via DLX | ✅ Complete |
-| Load testing | ✅ Complete (see [Performance](#performance)) |
+| Load testing | ✅ Complete |
 | Template management | 📋 Planned |
 | Suppression list (auto + manual add/list/remove) | ✅ Complete |
 | Reputation dashboard | 📋 Planned |
