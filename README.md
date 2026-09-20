@@ -2,6 +2,8 @@
 
 > A production-grade, multi-tenant transactional email API platform built for developers and startups who need reliable email delivery with deep deliverability insights.
 
+**Live on RapidAPI:** https://rapidapi.com/vorakiran79/api/noticore
+
 ---
 
 ## Overview
@@ -581,7 +583,7 @@ Noticore uses Brevo as the underlying email delivery infrastructure for the foll
 
 ## Local Setup
 
-Prerequisites: Java 17, a local PostgreSQL instance, a local RabbitMQ instance, a Brevo account (no Docker Compose setup exists in this repo yet).
+Prerequisites: Java 17, a local PostgreSQL instance, a local RabbitMQ instance, a Brevo account (the `docker-compose.yml` in this repo is the production deployment file: app, PostgreSQL and RabbitMQ on the EC2 host, with credentials read from `/etc/noticore.env`. For local development, run PostgreSQL and RabbitMQ yourself).
 
 1. Create the `noticore` database in PostgreSQL matching `spring.datasource.*` in `application.properties` (or edit that file to point elsewhere).
 2. Set the Brevo credentials as environment variables:
@@ -634,7 +636,7 @@ Prerequisites: Java 17, a local PostgreSQL instance, a local RabbitMQ instance, 
 
 ## Contact
 
-**Developer:** Kiran Vora  
+**Developer:** Kiran Vora ([LinkedIn](https://www.linkedin.com/in/kiran-vora-aab4b5262/) · [GitHub](https://github.com/Kiranvora17))  
 **Purpose:** This project is being built as a production-grade portfolio API to demonstrate backend engineering capabilities including distributed systems, async processing, multi-tenancy, and cloud infrastructure.
 
 ---
