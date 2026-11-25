@@ -28,22 +28,38 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
+          # amd64 for x86 servers, arm64 for Ampere servers
+          platforms: linux/amd64,linux/arm64
           tags: ${{ secrets.DOCKER_USERNAME }}/noticore-api:latest
 
-      - name: Deploy to EC2
+      - name: Copy deployment files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: kiran
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.yml,Caddyfile,deploy/backup-db.sh"
+          target: /home/kiran/noticore
+
+      - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.VPS_HOST }}
+          username: kiran
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
           script: |
-            docker pull ${{ secrets.DOCKER_USERNAME }}/noticore-api:latest
-            docker compose -f /home/ubuntu/docker-compose.yml down
-            docker compose -f /home/ubuntu/docker-compose.yml up -d
-            docker system prune -f
-            
+            cd /home/kiran/noticore
+            export APP_IMAGE=${{ secrets.DOCKER_USERNAME }}/noticore-api:latest
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
+

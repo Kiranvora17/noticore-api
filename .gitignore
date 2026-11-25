@@ -34,3 +34,6 @@ build/
 
 ### Local load testing ###
 loadtest/
+
+### Server secrets ###
+.env

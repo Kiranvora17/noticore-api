@@ -1,18 +1,42 @@
-version: '3.8'
+name: noticore
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   app:
-    image: kiranvora81/noticore-api:latest
-    pull_policy: always
+    image: ${APP_IMAGE:-kiranvora81/noticore-api:latest}
+    pull_policy: ${APP_PULL_POLICY:-always}
     container_name: noticore-api
+    # Only reachable from the server itself. Public traffic goes through Caddy.
     ports:
-      - "8080:8080"
-    env_file:
-      - /etc/noticore.env
+      - "127.0.0.1:8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/noticore
+      DB_USERNAME: ${DB_USERNAME:?set DB_USERNAME in .env}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      # Sized for a 1 GB server. Override either value in .env on a larger one.
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx256m -XX:+UseSerialGC}
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${DB_POOL_SIZE:-10}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?set RABBITMQ_USERNAME in .env}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
+      BREVO_API_KEY: ${BREVO_API_KEY:?set BREVO_API_KEY in .env}
+      BREVO_SMTP_USERNAME: ${BREVO_SMTP_USERNAME:?set BREVO_SMTP_USERNAME in .env}
+      BREVO_SMTP_PASSWORD: ${BREVO_SMTP_PASSWORD:?set BREVO_SMTP_PASSWORD in .env}
+      BREVO_WEBHOOK_USERNAME: ${BREVO_WEBHOOK_USERNAME:?set BREVO_WEBHOOK_USERNAME in .env}
+      BREVO_WEBHOOK_PASSWORD: ${BREVO_WEBHOOK_PASSWORD:?set BREVO_WEBHOOK_PASSWORD in .env}
+      RAPIDAPI_PROXY_SECRET: ${RAPIDAPI_PROXY_SECRET:?set RAPIDAPI_PROXY_SECRET in .env}
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     restart: always
+    logging: *logging
     networks:
       - noticore-network
 
@@ -21,28 +45,68 @@ services:
     container_name: noticore-postgres
     environment:
       POSTGRES_DB: noticore
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME:?set DB_USERNAME in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 skips the temporary socket-only server used during first-time init
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d noticore"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     restart: always
+    logging: *logging
     networks:
       - noticore-network
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: noticore-rabbitmq
+    # Queue data is stored under the node name, so the hostname must not change
+    hostname: rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?set RABBITMQ_USERNAME in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
+    # Management UI: reach it with  ssh -L 15672:localhost:15672 kiran@<server>
     ports:
-      - "15672:15672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
     restart: always
+    logging: *logging
+    networks:
+      - noticore-network
+
+  caddy:
+    image: caddy:2
+    container_name: noticore-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: always
+    logging: *logging
     networks:
       - noticore-network
 
 volumes:
   postgres_data:
+  rabbitmq_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   noticore-network:

@@ -1,2 +1,5 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+# Files that run on the Linux server
+*.sh text eol=lf
+Caddyfile text eol=lf
